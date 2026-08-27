@@ -1,5 +1,5 @@
 name = "SunCotangent"
-version = "1.0.0"
+version = "1.0.1"
 defaultTargets = ["SunCotangent", "Challenge", "Solution"]
 
 [[require]]

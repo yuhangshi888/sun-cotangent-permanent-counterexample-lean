@@ -4,7 +4,7 @@
 
 Yuhang Shi<br>
 Email: yuhangshi888@gmail.com<br>
-Formalization version 1.0.0 — August 27, 2026. Not peer reviewed.
+Formalization version 1.0.1 — August 27, 2026. Not peer reviewed.
 
 This repository proves in Lean 4 the exact identity
 
@@ -31,9 +31,16 @@ certificate. Two new 61-bit residue moduli and the middle modulus from the
 paper are specialized at explicit twenty-ninth roots. One kernel-checked Gray
 scan, split into 128 checkpoint segments with 129 boundary accumulators,
 computes the three packed permanents.
-Pairwise coprimality and an explicit product bound then lift all 28 canonical
-coefficients to integers. This proves equation (4.1), and the formalized
-Gauss-sum and cotangent bridge gives the exact real identity above.
+Before these scalar evaluations are used, invariance of the certificate under
+`X ↦ X²` and the fact that `2` generates the nonzero residues modulo `29`
+show that all 28 nonzero cyclic coefficients are equal. Subtracting their
+common multiple of the cyclotomic sum therefore leaves a quotient normal form
+with a single canonical constant. Each scalar specialization determines this
+one constant modulo its modulus; the resulting statements about all 28
+canonical positions follow from the normal form rather than from 28 separate
+permanent evaluations. Pairwise coprimality and an explicit product bound then
+lift the coefficients to integers. This proves equation (4.1), and the
+formalized Gauss-sum and cotangent bridge gives the exact real identity above.
 
 The repository also contains a six-small-modulus certificate that is
 independent of the preceding residue computation. Its own compact scan has
@@ -55,6 +62,7 @@ value. Neither finite computation is assumed as an axiom.
 | Section 3 CRT | The displayed `N` and `M`, centered representative, congruences, and uniqueness argument |
 | Archimedean estimate | Cotangent bounds, permanent bound, `sqrt 29 < 6`, four displayed decimal expansions, and both strict comparisons |
 | Equation (4.1) | Both the cyclic group-ring form and the literal quotient `Z[X]/(Phi_29)` form |
+| Cyclotomic normal form | Invariance under `X ↦ X²`, equality of the nonzero cyclic coefficients, and reduction to one canonical constant |
 | Section 4 lifting | Submultiplicative `l1` bounds, `B = 14! * 29^29`, all 28 coefficient bounds, three-modulus product, and integer lifting |
 | Analytic return | Quadratic-residue square count, Gauss specialization, matrix specialization, cancellation, exact value, and sign consequence |
 

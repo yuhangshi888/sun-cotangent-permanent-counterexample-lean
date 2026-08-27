@@ -10,22 +10,26 @@ formalization and introduce no additional assumptions.
 
 namespace SunCotangentP29
 
-local instance solutionPrimeFact29 : Fact (Nat.Prime 29) := ⟨by decide⟩
-
 theorem cotangentPermanent29_exact :
     Real.sqrt 29 *
-        Matrix.permanent
-          (fun j k : Fin 14 ↦
-            Real.cot (Real.pi * ((j.val + 1) * (k.val + 1)) / 29)) =
+        (letI : Fintype (Fin 14) := Fin.fintype 14
+         Matrix.permanent
+           (fun j k : Fin 14 ↦
+             Real.cot (Real.pi * ((j.val + 1) * (k.val + 1)) / 29))) =
       84_643_985_981_440 := by
+  change Real.sqrt 29 * SunCotangent.realCotMatrix29.permanent =
+    84_643_985_981_440
   exact SunCotangent.cotangentPermanent29_exact
 
 theorem sunSignCounterexample :
-    (legendreSym 29 (-1) : ℝ) *
-        (Real.sqrt 29 *
-          Matrix.permanent
-            (fun j k : Fin 14 ↦
-              Real.cot (Real.pi * ((j.val + 1) * (k.val + 1)) / 29))) > 0 := by
+    (letI : Fact (Nat.Prime 29) := ⟨by decide⟩
+     (legendreSym 29 (-1) : ℝ) *
+         (Real.sqrt 29 *
+           (letI : Fintype (Fin 14) := Fin.fintype 14
+            Matrix.permanent
+              (fun j k : Fin 14 ↦
+                Real.cot (Real.pi * ((j.val + 1) * (k.val + 1)) / 29)))) > 0) := by
+  letI : Fact (Nat.Prime 29) := ⟨by decide⟩
   change
     (legendreSym 29 (-1) : ℝ) *
         (Real.sqrt 29 * SunCotangent.realCotMatrix29.permanent) > 0

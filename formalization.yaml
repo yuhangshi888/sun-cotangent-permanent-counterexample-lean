@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mathlib-initiative/formalization.yaml/main/schema/formalization.schema.json
+version: "v0.4"
+
+project:
+  name: "A Lean formalization of a counterexample to Sun's sign conjecture for cotangent permanents"
+  description: >-
+    A Lean 4 and Mathlib formalization of the exact evaluation of the
+    normalized 14 by 14 cotangent permanent at p = 29. The formalization
+    proves that its value is 84643985981440 and hence gives a counterexample
+    to the cotangent sign inequality in Zhi-Wei Sun's Conjecture 4.7(ii).
+    It includes the analytic-to-cyclotomic bridge, two separately
+    kernel-checked finite permanent certificates, Chinese-remainder and
+    coefficientwise integer lifting, the Section 3 Archimedean uniqueness
+    argument, and equation (4.1) in the integral cyclotomic quotient.
+  authors:
+    - "Yuhang Shi"
+  license: "Apache-2.0"
+  responsible_maintainers:
+    - "Yuhang Shi"
+
+classification:
+  arxiv: ["math.NT", "math.CO"]
+  msc2020: ["11C20", "15A15", "11A07"]
+
+sources:
+  - title: "A counterexample to Sun's sign conjecture for cotangent permanents"
+    authors:
+      - "Yuhang Shi"
+    id: "doi:10.5281/zenodo.22105063"
+    type: "paper"
+    location: "Theorem 1 and Sections 2--4; https://doi.org/10.5281/zenodo.22105063"
+    relationship: "formalizes"
+    note: >-
+      This repository formalizes the preprint's exact p = 29 evaluation and
+      sign-counterexample theorem, together with its principal analytic,
+      finite-field, CRT, and cyclotomic arguments.
+    license: "CC-BY-4.0"
+    author_endorsement: "participated"
+  - title: "Arithmetic properties of some permanents"
+    authors:
+      - "Zhi-Wei Sun"
+    id: "arXiv:2108.07723v7"
+    type: "paper"
+    location: "Theorem 1.7 and Conjecture 4.7(ii); https://arxiv.org/abs/2108.07723v7"
+    relationship: "background"
+    note: >-
+      Sun proves the integrality and congruence background and states
+      Conjecture 4.7(ii), whose cotangent sign inequality is refuted at p = 29.
+    author_endorsement: "not-contacted"
+
+related_formalizations: []
+
+status:
+  scope: >-
+    The substantive Lean development proves the exact p = 29 cotangent
+    permanent value and its sign consequence without sorry, custom axioms, or
+    native_decide. The Comparator-facing proof uses a three-scalar 61-bit
+    certificate independent of the six-small-modulus residue computation. A
+    separate six-small-modulus certificate proves the same canonical integer
+    and supplies the literal finite-field table and Section 3 CRT route. The
+    development also formalizes the
+    analytic bridge, generic permanent identities, the Archimedean uniqueness
+    estimate, equation (4.1) in the integral polynomial quotient, and all 28
+    coefficient bounds and integer-lifting conclusions. Challenge.lean has
+    two deliberate statement placeholders allowed by Comparator; they are not
+    proof dependencies and are excluded from these counts. Sun's general
+    integrality theorem is retained as an explicit literature hypothesis only
+    in the separately named Section 3 reconstruction; the advertised theorem
+    does not depend on it.
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms: ["propext", "Quot.sound", "Classical.choice"]
+  main_results:
+    - declaration: "SunCotangent.cotangentPermanent29_exact"
+      file: "SunCotangent/AdvertisedTheorem.lean"
+      sorry_count: 0
+      axioms: ["propext", "Quot.sound", "Classical.choice"]
+      comparator_config: "comparator.json"
+      literature_dependencies: []
+    - declaration: "SunCotangent.sun_cotangent_sign_counterexample"
+      file: "SunCotangent/AdvertisedTheorem.lean"
+      sorry_count: 0
+      axioms: ["propext", "Quot.sound", "Classical.choice"]
+      comparator_config: "comparator.json"
+      literature_dependencies: []
+
+automation:
+  methods:
+    - method: "agent"
+      models: ["OpenAI Codex"]
+      framework: "OpenAI Codex"
+      tool_setup: >-
+        Agent-assisted Lean theorem development, proof decomposition, exact
+        finite certificate transcription, compilation, and adversarial checks,
+        with author review and responsibility for the final claims.
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "subscription-based"
+        hardware: "local Mac"
+      prompting_notes: >-
+        Prompts requested a complete kernel-checked formalization, explicit
+        proof boundaries, zero sorry in substantive modules, and exact
+        correspondence with the mathematical source.
+  spend_usd: "subscription-based"
+  notes: >-
+    OpenAI Codex assisted throughout; Yuhang Shi selected the target, reviewed
+    the mathematical claims, and is responsible for the submitted snapshot.
+
+fidelity:
+  divergences: >-
+    The Comparator-facing certificate uses three scalar 61-bit residue rings:
+    two new verification moduli and the middle modulus from the paper. A
+    separate certificate uses six 31-bit residue rings. Both employ a
+    kernel-checked Gray recurrence. The paper's original first and third
+    extension-valued 61-bit C++ scans are not replayed instruction by
+    instruction, although their stated moduli, product, bounds, and
+    coefficient-congruence conclusions are formalized and the same integral
+    equation is proved independently. The paper's localization language is
+    represented by the exact inverse and specialization identities used in
+    the proof rather than a separate localization object. Ryser and Glynn are
+    both proved correct, but no independent numerical Glynn checkpoint trace
+    is claimed. Sun's general odd-prime integrality theorem is cited only for
+    the optional Section 3 route and is not a dependency of the advertised
+    exact-value proof.
+
+review:
+  status: "self-assessed"
+  reviewers:
+    - "Yuhang Shi"
+  notes: >-
+    The author and Codex checked the advertised statement against the
+    preprint's normalization and audited the proof dependency chain. No
+    external mathematical peer review is claimed.
+
+alignment:
+  namespace: "SunCotangent"
+  statements:
+    - source: "Introduction (definition of the permanent)"
+      lean: "SunCotangent.paperPermanent_eq_permanent"
+      module: "SunCotangent.PaperPermanentConvention"
+      status: "proved"
+      note: >-
+        Explicitly identifies the paper's row-first permutation sum with
+        Mathlib's transposed indexing convention.
+    - source: "Theorem 1 (exact value at p = 29)"
+      lean: "SunCotangent.cotangentPermanent29_exact"
+      module: "SunCotangent.AdvertisedTheorem"
+      status: "proved"
+      note: "The matrix, normalization, and integer value are stated literally."
+    - source: "Theorem 1 (failure of the cotangent sign inequality)"
+      lean: "SunCotangent.sun_cotangent_sign_counterexample"
+      module: "SunCotangent.AdvertisedTheorem"
+      status: "proved"
+      note: "Uses the Legendre symbol and the same normalized permanent."
+    - source: "Section 3, Table 1 and CRT reconstruction"
+      lean: "SunCotangent.table1_row_one"
+      module: "SunCotangent.MainTheorem"
+      status: "proved"
+      note: >-
+        The three table rows, centered CRT representative, and Archimedean
+        uniqueness estimate have separate declarations in the same module.
+    - source: "Equation (4.1) and the coefficientwise lifting bound"
+      lean: "SunCotangent.polynomial_equation_four_one"
+      module: "SunCotangent.MainTheorem"
+      status: "proved"
+      note: >-
+        The identity is stated in Z[X] modulo the 29th cyclotomic polynomial;
+        the canonical coefficient bounds are also exposed in this module.
+    - source: "Section 4, original three 61-bit computational certificate"
+      lean: "SunCotangent.original_cyclotomic_modular_certificate"
+      module: "SunCotangent.MainTheorem"
+      status: "proved with implementation divergence"
+      note: >-
+        The stated modular conclusions are proved, but the original q1 and q3
+        extension-valued C++ instruction traces are not replayed. An
+        independent three-scalar Lean certificate proves equation (4.1).
+
+acknowledgements: >-
+  The development uses Lean 4 and Mathlib. Thanks are due to the Palomar
+  project for its Comparator-based statement and proof verification workflow.

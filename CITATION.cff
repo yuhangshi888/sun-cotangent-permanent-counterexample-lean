@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this formalization, please cite the associated preprint; this file also records the software release."
+title: "A Lean formalization of a counterexample to Sun's sign conjecture for cotangent permanents"
+type: software
+authors:
+  - family-names: "Shi"
+    given-names: "Yuhang"
+    email: "yuhangshi888@gmail.com"
+version: 1.0.0
+date-released: "2026-08-27"
+license: Apache-2.0
+repository-code: "https://github.com/yuhangshi888/sun-cotangent-permanent-counterexample-lean"
+url: "https://github.com/yuhangshi888/sun-cotangent-permanent-counterexample-lean"
+preferred-citation:
+  type: article
+  title: "A counterexample to Sun's sign conjecture for cotangent permanents"
+  authors:
+    - family-names: "Shi"
+      given-names: "Yuhang"
+      email: "yuhangshi888@gmail.com"
+  year: 2026
+  doi: "10.5281/zenodo.22105063"

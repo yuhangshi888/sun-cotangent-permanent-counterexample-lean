@@ -1,0 +1,18 @@
+/.cache/
+/.lake/
+/docbuild/.lake/
+
+# Local operating-system and editor artifacts.
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Lean/compiler outputs belong under Lake's ignored build directories.
+*.olean
+*.ilean
+*.o
+*.a
+*.so
+*.dylib
+*.log

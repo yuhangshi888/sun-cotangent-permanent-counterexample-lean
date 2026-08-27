@@ -1,0 +1,539 @@
+import Mathlib.Algebra.MonoidAlgebra.Basic
+import Mathlib.Combinatorics.Enumerative.InclusionExclusion
+import Mathlib.Data.Fintype.Lattice
+import Mathlib.Data.ZMod.Basic
+import Mathlib.LinearAlgebra.Matrix.Notation
+import Mathlib.LinearAlgebra.Matrix.Permanent
+import Mathlib.RingTheory.Ideal.Quotient.Defs
+import Mathlib.RingTheory.Ideal.Span
+import Mathlib.Tactic.Abel
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Ring
+import SunCotangent.CyclotomicBoundsDraft
+
+/-!
+# The exact cyclotomic certificate at `p = 29`
+
+This file formalizes the coefficientwise certificate in equation (4.1) of
+Shi's preprint.  The ambient cyclic group ring is
+
+`Z[C_29] = AddMonoidAlgebra Z (ZMod 29)`.
+
+Its element `cyclotomicSum = 1 + X + ... + X^28` generates the kernel of the
+usual map to `Z[X] / (1 + X + ... + X^28)`.  Thus equality after quotienting
+by `cyclotomicSum` is exactly equality in `Z[X] / Phi_29(X)`.
+
+For the computation we use the antisymmetric representative
+
+`B_e = sum_{s=1}^{28} (2s - 29) X^(es)`.
+
+It differs by `27 * Phi_29` from the integral representative
+`A_e = 29 - 2 U(X^e)` used in the paper.  This replacement is made only
+inside the standard quotient; it does not alter the mathematical statement.
+
+No floating-point arithmetic is used in this module.
+-/
+
+open scoped BigOperators
+
+namespace SunCotangent
+namespace CyclotomicCertificate
+
+noncomputable section
+
+abbrev Z29 := ZMod 29
+abbrev Cyclic (R : Type*) [Semiring R] := AddMonoidAlgebra R Z29
+
+open AddMonoidAlgebra
+
+/-- The monomial `c X^e` in the cyclic group ring. -/
+def monomial {R : Type*} [Semiring R] (e : Z29) (c : R) : Cyclic R :=
+  AddMonoidAlgebra.single e c
+
+/-- `1 + X + ... + X^28`, represented in the cyclic group ring. -/
+def cyclotomicSum : Cyclic ℤ := ∑ e : Z29, monomial e 1
+
+/-- The standard integral cyclotomic quotient. -/
+abbrev CyclotomicRing :=
+  Cyclic ℤ ⧸ Ideal.span ({cyclotomicSum} : Set (Cyclic ℤ))
+
+/-- The polynomial `U(X^e) = sum_{s=0}^{27} (28-s) X^(es)`. -/
+def U (e : Z29) : Cyclic ℤ :=
+  ∑ s : Fin 28, monomial (e * (s.val : Z29)) (28 - (s.val : ℤ))
+
+/-- The representative `A_e = 29 - 2 U(X^e)` appearing in the paper. -/
+def paperEntry (e : Z29) : Cyclic ℤ :=
+  monomial 0 29 - 2 • U e
+
+/-- An antisymmetric representative of `paperEntry e` modulo `Phi_29`.
+
+The paired form below is the same as
+`sum_{s=1}^{28} (2s-29) X^(es)`: the term indexed by `r` pairs `s=r`
+with `s=29-r`.  In particular every coefficient has absolute value at most
+`27`, and `entry (-e) = -entry e` is visible without quotient reasoning.
+-/
+def entry (e : Z29) : Cyclic ℤ :=
+  ∑ r : Fin 14,
+    (monomial (e * ((r.val + 1 : ℕ) : Z29))
+        (2 * (r.val + 1 : ℤ) - 29) -
+      monomial (-e * ((r.val + 1 : ℕ) : Z29))
+        (2 * (r.val + 1 : ℤ) - 29))
+
+/-- The number of square roots of `e` modulo `29`. -/
+def squareCount29 (e : Z29) : ℤ :=
+  ((Finset.univ.filter fun a : Z29 ↦ a ^ 2 = e).card : ℤ)
+
+/-- The quadratic-residue-counting polynomial `sum_{a=0}^{28} X^(a^2)`
+used literally in equation (4.1) of the paper.  Defining its coefficient as
+the number of square roots is coefficientwise identical to that sum. -/
+def gaussSquares : Cyclic ℤ :=
+  AddMonoidAlgebra.ofCoeff
+    (Finsupp.equivFunOnFinite.symm squareCount29)
+
+/-- The quadratic character modulo `29`, expressed by Euler's criterion. -/
+def quadraticChar29 (e : Z29) : ℤ :=
+  if e = 0 then 0 else if e ^ 14 = 1 then 1 else -1
+
+/-- The centered character Gauss representative `sum chi(e) X^e`.
+
+It differs from `gaussSquares` by `Phi_29`, hence has the same image in the
+cyclotomic quotient, but it has the exact group-ring symmetry
+`X ↦ X² : gaussChar ↦ -gaussChar`.
+-/
+def gaussChar : Cyclic ℤ :=
+  AddMonoidAlgebra.ofCoeff
+    (Finsupp.equivFunOnFinite.symm quadraticChar29)
+
+/-- The `14 x 14` matrix of integral cyclotomic representatives. -/
+def cyclotomicMatrix : Matrix (Fin 14) (Fin 14) (Cyclic ℤ) :=
+  fun j k ↦ entry
+    (((j.val + 1 : ℕ) : Z29) * ((k.val + 1 : ℕ) : Z29))
+
+/-- The left-hand side of equation (4.1), before taking the quotient. -/
+def certificatePolynomial : Cyclic ℤ :=
+  gaussChar * Matrix.permanent cyclotomicMatrix
+
+/-- The integer on the right-hand side of equation (4.1). -/
+def certificateInteger : ℤ :=
+  -84_643_985_981_440 * 29 ^ 14
+
+/-! ## Evaluation at an exact 29th root in a finite ring -/
+
+/-- A unit built from an element whose 29th power is one. -/
+def rootUnit {R : Type*} [CommRing R] (w : R) (hw : w ^ 29 = 1) : Rˣ where
+  val := w
+  inv := w ^ 28
+  val_inv := by
+    rw [mul_comm, ← pow_succ]
+    exact hw
+  inv_val := by
+    rw [← pow_succ]
+    exact hw
+
+/-- Integer powers of a unit, regarded additively in the exponent. -/
+def integerPowers {R : Type*} [CommRing R] (u : Rˣ) : ℤ →+ Additive Rˣ where
+  toFun n := Additive.ofMul (u ^ n)
+  map_zero' := by simp
+  map_add' a b := by simp [zpow_add]
+
+/-- The character of the additive group `Z/29Z` generated by `w`. -/
+def exponentHom {R : Type*} [CommRing R] (w : R) (hw : w ^ 29 = 1) :
+    Multiplicative Z29 →* R :=
+  (Units.coeHom R).comp <|
+    (ZMod.lift 29
+      ⟨integerPowers (rootUnit w hw), by
+        change Additive.ofMul ((rootUnit w hw) ^ (29 : ℤ)) = 0
+        change (rootUnit w hw) ^ ((29 : ℕ) : ℤ) = 1
+        rw [zpow_natCast]
+        apply Units.ext
+        change w ^ 29 = 1
+        exact hw⟩).toMultiplicativeLeft
+
+/-- Evaluation of the integral cyclic group ring at a 29th root `w`. -/
+def evalRoot (q : ℕ) (w : ZMod q) (hw : w ^ 29 = 1) :
+    Cyclic ℤ →ₐ[ℤ] ZMod q :=
+  AddMonoidAlgebra.lift ℤ (ZMod q) Z29 (exponentHom w hw)
+
+@[simp]
+theorem evalRoot_monomial (q : ℕ) (w : ZMod q) (hw : w ^ 29 = 1)
+    (e : Z29) (c : ℤ) :
+    evalRoot q w hw (monomial e c) =
+      algebraMap ℤ (ZMod q) c * exponentHom w hw (Multiplicative.ofAdd e) := by
+  simp [evalRoot, monomial, Algebra.smul_def]
+
+/-! ## The `X ↦ X²` symmetry -/
+
+@[simp]
+theorem gaussSquares_coeff (e : Z29) :
+    gaussSquares.coeff e = squareCount29 e := by
+  rfl
+
+@[simp]
+theorem gaussChar_coeff (e : Z29) :
+    gaussChar.coeff e = quadraticChar29 e := by
+  rfl
+
+/-- At every residue, the number of square roots is `1 + chi`.  This is a
+closed calculation in the 29-element field, checked by the kernel. -/
+theorem squareCount29_eq_char_add_one :
+    ∀ e : Z29, squareCount29 e = quadraticChar29 e + 1 := by
+  decide +kernel
+
+/-- Consequently the paper's square-counting Gauss polynomial differs from
+the centered character representative by exactly the cyclotomic sum. -/
+theorem gaussSquares_eq_gaussChar_add_cyclotomicSum :
+    gaussSquares = gaussChar + cyclotomicSum := by
+  ext e
+  simp [squareCount29_eq_char_add_one, cyclotomicSum, monomial]
+
+/-- Multiplication by two on the exponent group.  Its inverse is
+multiplication by fifteen because `2 * 15 = 1 (mod 29)`. -/
+def doubleExponent : Z29 ≃+ Z29 where
+  toFun x := 2 * x
+  invFun x := 15 * x
+  left_inv x := by
+    change 15 * (2 * x) = x
+    calc
+      15 * (2 * x) = (30 : Z29) * x := by ring
+      _ = 1 * x := by rw [show (30 : Z29) = 1 by decide +kernel]
+      _ = x := one_mul x
+  right_inv x := by
+    change 2 * (15 * x) = x
+    calc
+      2 * (15 * x) = (30 : Z29) * x := by ring
+      _ = 1 * x := by rw [show (30 : Z29) = 1 by decide +kernel]
+      _ = x := one_mul x
+  map_add' x y := by ring
+
+/-- The group-ring automorphism induced by `X ↦ X²`. -/
+def doubleAutomorphism : Cyclic ℤ ≃ₐ[ℤ] Cyclic ℤ :=
+  AddMonoidAlgebra.domCongr ℤ ℤ doubleExponent
+
+/-- Row permutation induced by doubling the representatives `1,...,14`
+modulo sign. -/
+def doubleRowFun : Fin 14 → Fin 14 := fun i ↦
+  ![1, 3, 5, 7, 9, 11, 13, 12, 10, 8, 6, 4, 2, 0] i
+
+def doubleRowInvFun : Fin 14 → Fin 14 := fun i ↦
+  ![13, 0, 12, 1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6] i
+
+def doubleRow : Equiv.Perm (Fin 14) where
+  toFun := doubleRowFun
+  invFun := doubleRowInvFun
+  left_inv := by decide +kernel
+  right_inv := by decide +kernel
+
+/-- The first seven doubled representatives stay in `1,...,14`; the last
+seven acquire a minus sign when folded back from `15,...,28`. -/
+def doubleRowSign (i : Fin 14) : ℤ := if i.val < 7 then 1 else -1
+
+private theorem permanent_mul_rows {R ι : Type*} [CommRing R]
+    [Fintype ι] [DecidableEq ι] (c : ι → R) (M : Matrix ι ι R) :
+    Matrix.permanent (fun i j ↦ c i * M i j) =
+      (∏ i, c i) * Matrix.permanent M := by
+  classical
+  rw [Matrix.permanent, Matrix.permanent, Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro σ _hσ
+  simp_rw [Finset.prod_mul_distrib]
+  rw [Equiv.prod_comp σ c]
+
+/-- Doubling negates the quadratic Gauss polynomial.  This is the finite
+fact that `2` is a quadratic nonresidue modulo `29`. -/
+theorem double_gauss : doubleAutomorphism gaussChar = -gaussChar := by
+  ext e
+  simp only [doubleAutomorphism, AddMonoidAlgebra.coeff_domCongr,
+    gaussChar_coeff]
+  change quadraticChar29 (15 * e) = -quadraticChar29 e
+  revert e
+  decide +kernel
+
+@[simp]
+theorem double_monomial (e : Z29) (c : ℤ) :
+    doubleAutomorphism (monomial e c) = monomial (2 * e) c := by
+  simp [doubleAutomorphism, doubleExponent, monomial,
+    AddMonoidAlgebra.domCongr_single]
+
+@[simp]
+theorem double_entry (e : Z29) :
+    doubleAutomorphism (entry e) = entry (2 * e) := by
+  simp only [entry, map_sum, map_sub, double_monomial]
+  apply Finset.sum_congr rfl
+  intro r _hr
+  congr 2 <;> ring
+
+@[simp]
+theorem entry_neg (e : Z29) : entry (-e) = -entry e := by
+  simp only [entry, neg_mul, neg_neg, Finset.sum_sub_distrib]
+  abel
+
+/-- Doubling the exponent permutes the rows of the matrix and introduces
+exactly the seven recorded row signs.  The proof is a closed computation
+over the 196 entries of the explicitly defined finite matrix. -/
+theorem double_matrix :
+    (fun i j ↦ doubleAutomorphism (cyclotomicMatrix i j)) =
+      fun i j ↦ doubleRowSign i • cyclotomicMatrix (doubleRow i) j := by
+  funext i j
+  rw [cyclotomicMatrix, double_entry]
+  have h29 : (29 : Z29) = 0 := by decide +kernel
+  fin_cases i <;>
+    simp [doubleRowSign, doubleRow, doubleRowFun, cyclotomicMatrix]
+  all_goals first
+    | apply congrArg entry; ring
+    | rw [← entry_neg]; apply congrArg entry
+      linear_combination (1 + (j.val : Z29)) * h29
+
+private theorem doubleRowSign_product : ∏ i : Fin 14, doubleRowSign i = -1 := by
+  decide +kernel
+
+set_option maxRecDepth 10000 in
+/-- The whole certificate polynomial is fixed by `X ↦ X²`: both the
+Gauss factor and the permanent factor change sign. -/
+theorem double_certificatePolynomial :
+    doubleAutomorphism certificatePolynomial = certificatePolynomial := by
+  rw [certificatePolynomial, map_mul, double_gauss]
+  have hmap :
+      doubleAutomorphism (Matrix.permanent cyclotomicMatrix) =
+        Matrix.permanent
+          (fun i j ↦ doubleAutomorphism (cyclotomicMatrix i j)) := by
+    simp only [Matrix.permanent, map_sum, map_prod]
+  rw [hmap, double_matrix]
+  have hc :
+      (∏ i : Fin 14,
+        algebraMap ℤ (Cyclic ℤ) (doubleRowSign i)) = -1 := by
+    rw [← map_prod, doubleRowSign_product]
+    simp
+  have hperm :
+      Matrix.permanent
+          (fun i j ↦ doubleRowSign i • cyclotomicMatrix (doubleRow i) j) =
+        -Matrix.permanent cyclotomicMatrix := by
+    simp_rw [Algebra.smul_def]
+    rw [permanent_mul_rows, hc]
+    rw [show Matrix.permanent
+        (fun i j ↦ cyclotomicMatrix (doubleRow i) j) =
+          Matrix.permanent cyclotomicMatrix by
+        exact Matrix.permanent_permute_cols doubleRow cyclotomicMatrix]
+    ring
+  rw [hperm]
+  ring
+
+/-! ## Reduction to one integral coefficient
+
+Because `2` generates the nonzero residues modulo `29`, invariance under
+`X ↦ X²` forces all twenty-eight nonzero cyclic coefficients of the
+certificate to be equal.  Thus its image modulo `Phi_29` is determined by
+one ordinary integer.
+-/
+
+theorem certificate_coeff_double (e : Z29) :
+    certificatePolynomial.coeff (2 * e) = certificatePolynomial.coeff e := by
+  have h := congrArg (fun f : Cyclic ℤ ↦ f.coeff (2 * e))
+    double_certificatePolynomial
+  simp only [doubleAutomorphism, AddMonoidAlgebra.coeff_domCongr] at h
+  change certificatePolynomial.coeff (15 * (2 * e)) =
+    certificatePolynomial.coeff (2 * e) at h
+  have hinv : 15 * (2 * e) = e := doubleExponent.left_inv e
+  rw [hinv] at h
+  exact h.symm
+
+theorem certificate_coeff_two_pow (e : Z29) (n : ℕ) :
+    certificatePolynomial.coeff ((2 : Z29) ^ n * e) =
+      certificatePolynomial.coeff e := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [pow_succ]
+      rw [show (2 : Z29) ^ n * 2 * e = 2 * ((2 : Z29) ^ n * e) by ring]
+      rw [certificate_coeff_double, ih]
+
+private theorem nonzero_eq_two_pow :
+    ∀ e : Z29, e ≠ 0 → ∃ n : Fin 28, e = (2 : Z29) ^ n.val := by
+  decide +kernel
+
+/-- Every nonzero coefficient equals the coefficient of `X`. -/
+theorem certificate_coeff_eq_one (e : Z29) (he : e ≠ 0) :
+    certificatePolynomial.coeff e = certificatePolynomial.coeff 1 := by
+  obtain ⟨n, rfl⟩ := nonzero_eq_two_pow e he
+  simpa using certificate_coeff_two_pow (1 : Z29) n.val
+
+/-- The canonical constant coefficient after reducing modulo
+`1 + X + ... + X^28`. -/
+def canonicalConstant : ℤ :=
+  certificatePolynomial.coeff 0 - certificatePolynomial.coeff (28 : Z29)
+
+private theorem coeff_int_smul (c : ℤ) (f : Cyclic ℤ) (e : Z29) :
+    (c • f).coeff e = c * f.coeff e := by
+  rw [AddMonoidAlgebra.coeff_smul_apply, zsmul_eq_mul]
+  simp only [Int.cast_id]
+
+/-- The exact group-ring normal form behind the cyclotomic quotient. -/
+theorem certificatePolynomial_normalForm :
+    certificatePolynomial =
+      monomial 0 canonicalConstant +
+        certificatePolynomial.coeff (28 : Z29) • cyclotomicSum := by
+  ext e
+  change certificatePolynomial.coeff e =
+    (monomial 0 canonicalConstant).coeff e +
+      (certificatePolynomial.coeff (28 : Z29) • cyclotomicSum).coeff e
+  rw [coeff_int_smul]
+  by_cases he : e = 0
+  · subst e
+    simp [monomial, cyclotomicSum, canonicalConstant]
+  · have hcoeff := certificate_coeff_eq_one e he
+    have h28 : (28 : Z29) ≠ 0 := by decide +kernel
+    have hcoeff28 := certificate_coeff_eq_one (28 : Z29) h28
+    rw [hcoeff, hcoeff28]
+    simp [monomial, cyclotomicSum, he]
+
+/-! ## A uniform integral coefficient bound
+
+The estimates in this section are deliberately structural.  They use the
+coefficientwise `l¹` norm from `CyclotomicBounds`: each character coefficient
+has absolute value at most one, each paired matrix entry is bounded term by
+term, and the permanent is bounded by the factorial expansion.  No modular
+certificate is used in the bound.
+-/
+
+private theorem quadraticChar29_abs_le_one :
+    ∀ e : Z29, |quadraticChar29 e| ≤ 1 := by
+  decide +kernel
+
+theorem gaussChar_cyclicL1_le :
+    CyclotomicBounds.cyclicL1 gaussChar ≤ 29 := by
+  calc
+    CyclotomicBounds.cyclicL1 gaussChar ≤
+        (Fintype.card Z29 : ℤ) * 1 := by
+      apply CyclotomicBounds.cyclicL1_le_card_mul
+      intro e
+      rw [gaussChar_coeff]
+      exact quadraticChar29_abs_le_one e
+    _ = 29 := by norm_num
+
+/-- Every paired entry has `l¹` norm at most `29² = 841`.
+
+The sharper value is `392` when the exponent is nonzero, but the uniform
+bound below avoids using that fact and is all that the global certificate
+estimate needs.
+-/
+theorem entry_cyclicL1_le (e : Z29) :
+    CyclotomicBounds.cyclicL1 (entry e) ≤ 841 := by
+  unfold entry
+  calc
+    CyclotomicBounds.cyclicL1
+        (∑ r : Fin 14,
+          (monomial (e * ((r.val + 1 : ℕ) : Z29))
+              (2 * (r.val + 1 : ℤ) - 29) -
+            monomial (-e * ((r.val + 1 : ℕ) : Z29))
+              (2 * (r.val + 1 : ℤ) - 29))) ≤
+        ∑ r : Fin 14,
+          CyclotomicBounds.cyclicL1
+            (monomial (e * ((r.val + 1 : ℕ) : Z29))
+                (2 * (r.val + 1 : ℤ) - 29) -
+              monomial (-e * ((r.val + 1 : ℕ) : Z29))
+                (2 * (r.val + 1 : ℤ) - 29)) := by
+      simpa using CyclotomicBounds.cyclicL1_finset_sum_le
+        (Finset.univ : Finset (Fin 14))
+        (fun r ↦
+          monomial (e * ((r.val + 1 : ℕ) : Z29))
+              (2 * (r.val + 1 : ℤ) - 29) -
+            monomial (-e * ((r.val + 1 : ℕ) : Z29))
+              (2 * (r.val + 1 : ℤ) - 29))
+    _ ≤ ∑ r : Fin 14,
+          (|2 * (r.val + 1 : ℤ) - 29| +
+            |2 * (r.val + 1 : ℤ) - 29|) := by
+      apply Finset.sum_le_sum
+      intro r _hr
+      calc
+        CyclotomicBounds.cyclicL1
+            (monomial (e * ((r.val + 1 : ℕ) : Z29))
+                (2 * (r.val + 1 : ℤ) - 29) -
+              monomial (-e * ((r.val + 1 : ℕ) : Z29))
+                (2 * (r.val + 1 : ℤ) - 29)) ≤
+            CyclotomicBounds.cyclicL1
+                (monomial (e * ((r.val + 1 : ℕ) : Z29))
+                  (2 * (r.val + 1 : ℤ) - 29)) +
+              CyclotomicBounds.cyclicL1
+                (monomial (-e * ((r.val + 1 : ℕ) : Z29))
+                  (2 * (r.val + 1 : ℤ) - 29)) :=
+          CyclotomicBounds.cyclicL1_sub_le _ _
+        _ = |2 * (r.val + 1 : ℤ) - 29| +
+              |2 * (r.val + 1 : ℤ) - 29| := by
+          unfold monomial
+          rw [CyclotomicBounds.cyclicL1_single,
+            CyclotomicBounds.cyclicL1_single]
+    _ ≤ 841 := by norm_num [Fin.sum_univ_succ]
+
+theorem cyclotomicPermanent_cyclicL1_le :
+    CyclotomicBounds.cyclicL1 (Matrix.permanent cyclotomicMatrix) ≤
+      (Nat.factorial 14 : ℤ) * 841 ^ 14 := by
+  apply CyclotomicBounds.permanent_cyclicL1_le cyclotomicMatrix 841
+  intro i j
+  simpa [cyclotomicMatrix] using entry_cyclicL1_le
+    (((i.val + 1 : ℕ) : Z29) * ((j.val + 1 : ℕ) : Z29))
+
+theorem certificatePolynomial_cyclicL1_le :
+    CyclotomicBounds.cyclicL1 certificatePolynomial ≤
+      CyclotomicBounds.broadCertificateBound := by
+  calc
+    CyclotomicBounds.cyclicL1 certificatePolynomial ≤
+        CyclotomicBounds.cyclicL1 gaussChar *
+          CyclotomicBounds.cyclicL1 (Matrix.permanent cyclotomicMatrix) := by
+      exact CyclotomicBounds.cyclicL1_mul_le _ _
+    _ ≤ 29 * CyclotomicBounds.cyclicL1
+          (Matrix.permanent cyclotomicMatrix) := by
+      exact mul_le_mul_of_nonneg_right gaussChar_cyclicL1_le
+        (CyclotomicBounds.cyclicL1_nonneg _)
+    _ ≤ 29 * ((Nat.factorial 14 : ℤ) * 841 ^ 14) := by
+      exact mul_le_mul_of_nonneg_left cyclotomicPermanent_cyclicL1_le (by norm_num)
+    _ = CyclotomicBounds.broadCertificateBound := by
+      norm_num [CyclotomicBounds.broadCertificateBound, Nat.factorial]
+
+/-- The canonical integer is within the interval used by the six-modulus
+CRT uniqueness argument. -/
+theorem canonicalConstant_abs_le :
+    |canonicalConstant| ≤ CyclotomicBounds.broadCertificateBound := by
+  change |certificatePolynomial.coeff 0 -
+    certificatePolynomial.coeff (28 : Z29)| ≤
+      CyclotomicBounds.broadCertificateBound
+  exact (CyclotomicBounds.abs_coeff_sub_coeff_le_cyclicL1
+    certificatePolynomial 0 (28 : Z29) (by decide +kernel)).trans
+      certificatePolynomial_cyclicL1_le
+
+/-! ## Generic finite-root bridge
+
+A modular computation need only establish two facts: evaluation kills the
+cyclotomic sum, and evaluation of the full certificate has the claimed
+residue.  The normal form then identifies that residue with the reduction of
+`canonicalConstant`.  This theorem is shared by all six moduli.
+-/
+
+theorem evalRoot_certificatePolynomial_eq_canonicalConstant
+    (q : ℕ) (w : ZMod q) (hw : w ^ 29 = 1)
+    (hcyclotomic : evalRoot q w hw cyclotomicSum = 0) :
+    evalRoot q w hw certificatePolynomial =
+      (canonicalConstant : ZMod q) := by
+  rw [certificatePolynomial_normalForm]
+  simp [evalRoot_monomial, hcyclotomic]
+
+/-- Turn a checked finite-ring evaluation into the cast equality consumed by
+the CRT uniqueness theorem. -/
+theorem canonicalConstant_mod_eq_of_evalRoot_eq
+    (q : ℕ) (w : ZMod q) (hw : w ^ 29 = 1)
+    (hcyclotomic : evalRoot q w hw cyclotomicSum = 0)
+    (r : ZMod q)
+    (hcertificate : evalRoot q w hw certificatePolynomial = r) :
+    (canonicalConstant : ZMod q) = r := by
+  rw [evalRoot_certificatePolynomial_eq_canonicalConstant
+    q w hw hcyclotomic] at hcertificate
+  exact hcertificate
+
+/-! The modular certificates and their executable evaluator live in
+`SunCotangent.ModularCertificates`, so importing this symbolic core never
+triggers a large closed reduction. -/
+
+end
+end CyclotomicCertificate
+end SunCotangent
